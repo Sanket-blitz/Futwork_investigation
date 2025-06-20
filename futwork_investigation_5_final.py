@@ -17,12 +17,12 @@ def create_loading_screen():
     print("\nProcessing complete!")
 
 def process_data(file_path):
-    """Filter rows with recording links and save them to a new file."""
+    """Filter rows with recording links and save 100 sampled entries (if available)."""
     df = pd.read_excel(file_path)
 
-    # Fix: Adjust column name to match actual Excel file
-    if "Response" not in df.columns:
-        print("❌ Error: 'Response' column not found in the Excel file.")
+    # Adjust column names to match exactly
+    if "Response" not in df.columns or "Response Time" not in df.columns:
+        print("❌ Required columns 'Response' or 'Response Time' not found in the file.")
         return
 
     # Extract recording link from JSON in 'Response' column
@@ -40,14 +40,14 @@ def process_data(file_path):
     # Filter rows with valid links
     filtered_df = df[df["Recording"].notna()].copy()
 
-    # Convert 'response_time' to datetime for grouping
-    filtered_df.loc[:, "response_time"] = pd.to_datetime(filtered_df["response_time"])
+    # Convert 'Response Time' to datetime
+    filtered_df["Response Time"] = pd.to_datetime(filtered_df["Response Time"], errors="coerce")
 
-    # Group by hour and sample up to 5 rows
-    def sample_hour(hour_group):
-        return hour_group.sample(min(5, len(hour_group)), random_state=42)
+    # Sort by latest responses
+    filtered_df = filtered_df.sort_values(by="Response Time", ascending=False)
 
-    hourly_samples = filtered_df.groupby(filtered_df["response_time"].dt.hour, group_keys=False).apply(sample_hour)
+    # Sample up to 100
+    final_sample = filtered_df.head(100)
 
     # Dynamic folder & file naming
     current_date = datetime.now().strftime("%Y-%m-%d")
@@ -62,7 +62,7 @@ def process_data(file_path):
     output_path = os.path.join(output_folder, output_file)
 
     # Save final output
-    hourly_samples.to_excel(output_path, index=False)
+    final_sample.to_excel(output_path, index=False)
     print(f"✅ File saved at: {output_path}")
 
 if __name__ == "__main__":
